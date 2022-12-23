@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+</head>
+
+<body>
+  <div class="container">
+    <video class="input_video" style="display:none;"></video>
+    <canvas class="output_canvas" width="1280px" height="720px"></canvas>
+    <div style="display:none;">
+    </div>
+  </div>
+</body>
+</html>
+
+<script type="module">
+    const videoElement = document.getElementsByClassName('input_video')[0];
+    const canvasElement = document.getElementsByClassName('output_canvas')[0];
+    const canvasCtx = canvasElement.getContext('2d');
+
+    const imageUrls = [
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/bradley.png",
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/bradley2-removebg-preview.png",
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/bradley3-removebg-preview.png",
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/bradley4-removebg-preview.png",
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/bradley5-removebg-preview.png",
+  "https://raw.githubusercontent.com/Mike1795/BabylonStuff/main/textures/backgaet.png",
+  "https://static.wikia.nocookie.net/virtualyoutuber/images/2/26/LordAethelstanSeason2Model%28croppedbackground%29.png/revision/latest?cb=20220629032306"
+];
+
+const images = [];
+
+// imageUrls.map returns Promise array (because callback function is async), 
+// which is immediately passed to Promise.all which accumulates them into one
+// promise which will be resolved when all its elements will finish.
+Promise.all(
+  imageUrls.map(async (imageUrls, i) => {
+    const tmpImage = new Image();
+    
+    // Create synchronization promise
+    const syncPromise = new Promise((resolve) => {
+    
+      tmpImage.onload = (e) => {
+        // Handle loaded image
+        console.log("Finished loading image: ", i);
+        
+        // Don't forget to resolve syncPromise
+        resolve(); 
+      };
+      
+      tmpImage.src = imageUrls;
+      images.push(tmpImage);
+    });
+    
+    // Wait for syncPromise (image loaded)
+    await syncPromise;
+  })
+).then(() => {
+  console.log("Finished loading all images");
+});
+    
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      // canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(images[5], 0, 0, canvasElement.width, canvasElement.height);
+      
+      if (results.multiFaceLandmarks) {
+        for (const landmarks of results.multiFaceLandmarks) {
+          // drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS,
+                         //{color: '#00FF00', lineWidth: 5});
+          // drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 2});
+          // draw Bradley
+          let topX = landmarks[13].x * 1280;
+          let topY = landmarks[13].y * 720;
+          let bottomY = landmarks[14].y * 720;
+          let mid = Math.round((topY + bottomY) / 2);
+          let diff = bottomY - topY;
+          let offset = -100;
+          let yoffset = -200;
+          canvasCtx.drawImage(images[6], 20, 10, 800, 1200, Math.floor(landmarks[168].x * 1280) + offset + 180, Math.floor(landmarks[168].y * 720) + yoffset + 150, 180, 270);
+          if(diff > 20) {
+            canvasCtx.drawImage(images[0], 20, 10, 350, 600, Math.floor(landmarks[168].x * 1280) + offset, Math.floor(landmarks[168].y * 720) + yoffset, 420, 720);
+          } else if (diff > 15) {
+            canvasCtx.drawImage(images[1], 20, 10, 350, 600, Math.floor(landmarks[168].x * 1280) + offset, Math.floor(landmarks[168].y * 720) + yoffset, 420, 720);
+          } else if (diff > 10) {
+            canvasCtx.drawImage(images[2], 20, 10, 350, 600, Math.floor(landmarks[168].x * 1280) + offset, Math.floor(landmarks[168].y * 720) + yoffset, 420, 720);
+          } else if (diff > 5) {
+            canvasCtx.drawImage(images[3], 20, 10, 350, 600, Math.floor(landmarks[168].x * 1280) + offset, Math.floor(landmarks[168].y * 720) + yoffset, 420, 720);
+          } else {
+            canvasCtx.drawImage(images[4], 20, 10, 350, 600, Math.floor(landmarks[168].x * 1280) + offset, Math.floor(landmarks[168].y * 720) + yoffset, 420, 720);
+          }
+        }
+        
+      }
+      canvasCtx.restore();
+    }
+    
+    const faceMesh = new FaceMesh({locateFile: (file) => {
+  return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+}});
+faceMesh.setOptions({
+  maxNumFaces: 1,
+  refineLandmarks: true,
+  minDetectionConfidence: 0.5,
+  minTrackingConfidence: 0.5
+});
+faceMesh.onResults(onResults);
+
+const camera = new Camera(videoElement, {
+  onFrame: async () => {
+    await faceMesh.send({image: videoElement});
+  },
+  width: 1280,
+  height: 720
+});
+    camera.start();
+</script>
